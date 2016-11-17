@@ -1,0 +1,20 @@
+default:
+ - 'dev'
+ - 'connect:dev'
+ - 'watch'
+
+dev:
+ - 'clean:build'
+ - 'jshint:js'
+ - 'browserify:dev'
+ - 'sass:dev'
+ - 'copy:static'
+
+prod:
+ - 'clean:build'
+ - 'jshint:js'
+ - 'browserify:prod'
+ - 'uglify:prod'
+ - 'sass:prod'
+ - 'version'
+ - 'copy:static'
