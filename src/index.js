@@ -77,7 +77,7 @@ const stories = $collection.find('ol>li,article').map((index, el) => {
   };
 }).get();
 
-const date = new Date(stories.reduce((memo, story) => {
+let date = new Date(stories.reduce((memo, story) => {
 
   if (story.pubDate > memo) {
     memo = story.pubDate;
@@ -86,15 +86,22 @@ const date = new Date(stories.reduce((memo, story) => {
   return memo;
 }, 0));
 
+if (0 === +date) {
+  date = new Date(Date.now());
+}
+
 const offsetMinutes = date.getTimezoneOffset() + 600;
 
 date.setMinutes(date.getMinutes() + offsetMinutes);
+
+const hours = date.getHours() % 12;
+const minutes = date.getMinutes();
 
 const dateAEST = `${
   ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
 }, ${
   ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
-} ${date.getDate()}, ${date.getFullYear()} at ${date.getHours() % 12}:${date.getMinutes()} ${date.getHours() > 12 ? 'PM' : 'AM'}`;
+} ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${date.getHours() >= 12 ? 'PM' : 'AM'}`;
 
 $('[rel="stylesheet"]').remove();
 
