@@ -7,16 +7,18 @@
   "contributors": [
     "Colin Gourlay <Gourlay.Colin@abc.net.au>"
   ],
-  "scripts": {
-    "start": "npm install && aunty serve --debug"
+  "aunty": {
+    "type": "basic"
   },
-  "dependencies": {
-    "bel": "^4.6.0"
+  "scripts": {
+    "start": "aunty serve"
   },
   "devDependencies": {
-    "@abcnews/aunty": "2.2.x"
+    "@abcnews/aunty": "^12.1.3"
   },
-  "aunty": {
-    "type": "basic-story"
+  "dependencies": {
+    "@abcnews/env-utils": "^3.0.0",
+    "@abcnews/terminus-fetch": "^4.0.1",
+    "bel": "^4.6.0"
   }
 }

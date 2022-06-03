@@ -1,4 +1,6 @@
-const html = require('bel');
+import { GENERATIONS, getGeneration, requestDOMPermit } from '@abcnews/env-utils';
+import { fetchOne } from '@abcnews/terminus-fetch';
+import html from 'bel';
 
 const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1" cellspacing="1" border="0">
   <tr>
@@ -38,14 +40,28 @@ const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1
     </td>
     <td></td>
     <td valign="top" colspan="2">
-      ${stories.map((story, index) => html`<p>
-        ${index === 0 && story.imageURL ? html`<img src="${story.imageURL}" style="float:right;border:1px solid #000;margin:8px;width:200px;height:auto" />` : ''}
-        <span style="font-size:${index < 3 ? 'x' : ''}x-large;line-height:0.95"><tt><b><a href="${story.url}">${story.headline}</a></b></tt></span>
-        <br>
-        <span style="font-size:large">${story.teaser}</span>
-        <tt>[<a href="${story.url}"><nobr>FULL STORY</nobr></a>]</tt>
-        <br>
-      </p>`)}
+      ${stories.map(
+        (story, index) => html`<p>
+          ${index === 0 && story.imageURL
+            ? html`<img
+                src="${story.imageURL}"
+                style="float:right;border:1px solid #000;margin:8px;width:200px;height:auto"
+              />`
+            : ''}
+          <span style="font-size:${index < 3 ? 'x' : ''}x-large;line-height:0.95"
+            ><tt
+              ><b><a href="${story.url}">${story.headline}</a></b></tt
+            ></span
+          >
+          <br />
+          <span style="font-size:large">${story.teaser}</span>
+          <tt
+            >[<a href="${story.url}"><nobr>FULL STORY</nobr></a
+            >]</tt
+          >
+          <br />
+        </p>`
+      )}
       <p>
         <span style="font-size:large" face="Arial, Helvetica"><b><a href="/news/weather/"><img src="${root}forecast.gif" alt="Tomorrow's weather forecast:" border="0"></a></b></span>
       </p>
@@ -63,51 +79,66 @@ const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1
   </tr>
 </table>`;
 
-const $script = $(`[src="${$('.init-interactive').first().data('scripts')}"]`).detach();
-const root = $script.attr('src').split('index.js')[0];
-const $collection = $('.stories-collection').detach();
-const stories = $collection.find('ol>li,article').map((index, el) => {
-  const $story = $(el);
-  return {
-    url: $story.find('a').first().attr('href'),
-    headline: $.trim($story.find('h2,h3,h4').first().text()),
-    pubDate: +new Date($story.attr('data-last-published')),
-    teaser: $story.find('p').first().text(),
-    imageURL: $story.data('image-cmid') ? `/news/image/${$story.data('image-cmid')}-3x2-220x147.jpg` : $story.find('img').first().attr('src')
-  };
-}).get();
+const apikey = '***REMOVED***';
 
-let date = new Date(stories.reduce((memo, story) => {
+Promise.all([fetchOne({ apikey, id: 45910, type: 'collection' }), requestDOMPermit('page')]).then(
+  ([collectionDocument]) => {
+    const headEl = document.querySelector('head');
+    const bodyEl = document.querySelector('body');
 
-  if (story.pubDate > memo) {
-    memo = story.pubDate;
+    Array.from(headEl.children)
+      .filter((el) => el.getAttribute('rel') === 'stylesheet')
+      .forEach((el) => headEl.removeChild(el));
+
+    bodyEl.innerHTML = '';
+    bodyEl.setAttribute('link', '#0000ff');
+    bodyEl.setAttribute('bgcolor', '#ffffff');
+    bodyEl.setAttribute('background', `${__webpack_public_path__}margin.gif`);
+
+    Promise.all(
+      collectionDocument._embedded.content
+        .filter(({ docType }) => docType === 'Article')
+        .map(({ id }) => fetchOne({ id, isTeasable: true }))
+    ).then((articleDocuments) => {
+      const stories = articleDocuments.map((articleDocument, index) => ({
+        url: articleDocument.canonicalURL,
+        headline: articleDocument.title,
+        pubDate: +new Date(articleDocument.dates.displayPublished),
+        teaser: articleDocument.synopsis,
+        imageURL:
+          index === 0 && articleDocument._embedded.mediaThumbnail
+            ? articleDocument._embedded.mediaThumbnail.images['4x3']
+            : null,
+      }));
+
+      let date = new Date(
+        stories.reduce((memo, story) => {
+          if (story.pubDate > memo) {
+            memo = story.pubDate;
+          }
+
+          return memo;
+        }, 0)
+      );
+
+      if (0 === +date) {
+        date = new Date(Date.now());
+      }
+
+      const offsetMinutes = date.getTimezoneOffset() + 600;
+
+      date.setMinutes(date.getMinutes() + offsetMinutes);
+
+      const hours = date.getHours() % 12;
+      const minutes = date.getMinutes();
+
+      const dateAEST = `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}, ${
+        ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
+      } ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${
+        date.getHours() >= 12 ? 'PM' : 'AM'
+      }`;
+
+      bodyEl.appendChild(view(stories, __webpack_public_path__, dateAEST));
+    });
   }
-
-  return memo;
-}, 0));
-
-if (0 === +date) {
-  date = new Date(Date.now());
-}
-
-const offsetMinutes = date.getTimezoneOffset() + 600;
-
-date.setMinutes(date.getMinutes() + offsetMinutes);
-
-const hours = date.getHours() % 12;
-const minutes = date.getMinutes();
-
-const dateAEST = `${
-  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
-}, ${
-  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
-} ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${date.getHours() >= 12 ? 'PM' : 'AM'}`;
-
-$('[rel="stylesheet"]').remove();
-
-$('body')
-.empty()
-.attr('link', '#0000ff')
-.attr('bgcolor', '#ffffff')
-.attr('background', root + 'margin.gif')
-.append(view(stories, root, dateAEST));
+);
