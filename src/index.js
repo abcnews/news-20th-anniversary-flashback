@@ -1,4 +1,4 @@
-import { GENERATIONS, getGeneration, requestDOMPermit } from '@abcnews/env-utils';
+import { whenDOMReady } from '@abcnews/env-utils';
 import { fetchOne } from '@abcnews/terminus-fetch';
 import html from 'bel';
 
@@ -81,64 +81,64 @@ const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1
 
 const apikey = '***REMOVED***';
 
-Promise.all([fetchOne({ apikey, id: 45910, type: 'collection' }), requestDOMPermit('page')]).then(
-  ([collectionDocument]) => {
-    const headEl = document.querySelector('head');
-    const bodyEl = document.querySelector('body');
+Promise.all([fetchOne({ apikey, id: 45910, type: 'collection' }), whenDOMReady]).then(([collectionDocument]) => {
+  const headEl = document.querySelector('head');
+  const bodyEl = document.querySelector('body');
 
-    Array.from(headEl.children)
-      .filter((el) => el.getAttribute('rel') === 'stylesheet')
-      .forEach((el) => headEl.removeChild(el));
+  Promise.all(
+    collectionDocument._embedded.content
+      .filter(({ docType }) => docType === 'Article')
+      .map(({ id }) => fetchOne({ id, isTeasable: true }))
+  ).then((articleDocuments) => {
+    const stories = articleDocuments.map((articleDocument, index) => ({
+      url: articleDocument.canonicalURL,
+      headline: articleDocument.title,
+      pubDate: +new Date(articleDocument.dates.displayPublished),
+      teaser: articleDocument.synopsis,
+      imageURL:
+        index === 0 && articleDocument._embedded.mediaThumbnail
+          ? articleDocument._embedded.mediaThumbnail.images['4x3']
+          : null,
+    }));
 
-    bodyEl.innerHTML = '';
-    bodyEl.setAttribute('link', '#0000ff');
-    bodyEl.setAttribute('bgcolor', '#ffffff');
-    bodyEl.setAttribute('background', `${__webpack_public_path__}margin.gif`);
+    let date = new Date(
+      stories.reduce((memo, story) => {
+        if (story.pubDate > memo) {
+          memo = story.pubDate;
+        }
 
-    Promise.all(
-      collectionDocument._embedded.content
-        .filter(({ docType }) => docType === 'Article')
-        .map(({ id }) => fetchOne({ id, isTeasable: true }))
-    ).then((articleDocuments) => {
-      const stories = articleDocuments.map((articleDocument, index) => ({
-        url: articleDocument.canonicalURL,
-        headline: articleDocument.title,
-        pubDate: +new Date(articleDocument.dates.displayPublished),
-        teaser: articleDocument.synopsis,
-        imageURL:
-          index === 0 && articleDocument._embedded.mediaThumbnail
-            ? articleDocument._embedded.mediaThumbnail.images['4x3']
-            : null,
-      }));
+        return memo;
+      }, 0)
+    );
 
-      let date = new Date(
-        stories.reduce((memo, story) => {
-          if (story.pubDate > memo) {
-            memo = story.pubDate;
-          }
+    if (0 === +date) {
+      date = new Date(Date.now());
+    }
 
-          return memo;
-        }, 0)
-      );
+    const offsetMinutes = date.getTimezoneOffset() + 600;
 
-      if (0 === +date) {
-        date = new Date(Date.now());
-      }
+    date.setMinutes(date.getMinutes() + offsetMinutes);
 
-      const offsetMinutes = date.getTimezoneOffset() + 600;
+    const hours = date.getHours() % 12;
+    const minutes = date.getMinutes();
 
-      date.setMinutes(date.getMinutes() + offsetMinutes);
+    const dateAEST = `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}, ${
+      ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
+    } ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${
+      date.getHours() >= 12 ? 'PM' : 'AM'
+    }`;
 
-      const hours = date.getHours() % 12;
-      const minutes = date.getMinutes();
+    bodyEl.appendChild(view(stories, __webpack_public_path__, dateAEST));
+  });
 
-      const dateAEST = `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}, ${
-        ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
-      } ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${
-        date.getHours() >= 12 ? 'PM' : 'AM'
-      }`;
+  // Document reset (will have competed before the last promise resolves)
 
-      bodyEl.appendChild(view(stories, __webpack_public_path__, dateAEST));
-    });
-  }
-);
+  Array.from(headEl.children)
+    .filter((el) => el.getAttribute('rel') === 'stylesheet')
+    .forEach((el) => headEl.removeChild(el));
+
+  bodyEl.innerHTML = '';
+  bodyEl.setAttribute('link', '#0000ff');
+  bodyEl.setAttribute('bgcolor', '#ffffff');
+  bodyEl.setAttribute('background', `${__webpack_public_path__}margin.gif`);
+});
