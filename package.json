@@ -1,24 +1,24 @@
 {
-  "name": "news-20th-anniversary-flashback",
-  "version": "1.2.0",
-  "description": "A look back at the ABC News homepage 20 years ago, with today's content.",
-  "license": "MIT",
-  "private": true,
-  "contributors": [
-    "Colin Gourlay <Gourlay.Colin@abc.net.au>"
-  ],
-  "aunty": {
-    "type": "basic"
-  },
-  "scripts": {
-    "start": "aunty serve"
-  },
-  "devDependencies": {
-    "@abcnews/aunty": "^12.1.3"
-  },
-  "dependencies": {
-    "@abcnews/env-utils": "^3.0.0",
-    "@abcnews/terminus-fetch": "^4.0.1",
-    "bel": "^4.6.0"
-  }
+	"name": "news-20th-anniversary-flashback",
+	"version": "2.0.0",
+	"description": "A look back at the ABC News homepage 20 years ago, with today's content.",
+	"license": "MIT",
+	"private": true,
+	"contributors": [
+		"Colin Gourlay <Gourlay.Colin@abc.net.au>"
+	],
+	"aunty": {
+		"type": "basic"
+	},
+	"scripts": {
+		"start": "aunty serve"
+	},
+	"devDependencies": {
+		"@abcnews/aunty": "^12.1.3"
+	},
+	"dependencies": {
+		"@abcnews/env-utils": "^3.0.0",
+		"@abcnews/terminus-fetch": "^4.0.1",
+		"bel": "^4.6.0"
+	}
 }
