@@ -1,5 +1,9 @@
 .DS_Store
-.build
-.deploy
 node_modules
 npm-debug.log
+
+# output
+/.aunty
+
+# environment
+/.env

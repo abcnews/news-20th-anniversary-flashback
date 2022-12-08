@@ -1,8 +1,12 @@
-import { whenDOMReady } from '@abcnews/env-utils';
-import { fetchOne } from '@abcnews/terminus-fetch';
-import html from 'bel';
+import { whenDOMReady } from "@abcnews/env-utils";
+import { fetchOne } from "@abcnews/terminus-fetch";
+import html from "bel";
 
-const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1" cellspacing="1" border="0">
+const view = (
+  stories,
+  root,
+  dateAEST
+) => html`<table width="580" cellpadding="1" cellspacing="1" border="0">
   <tr>
     <td rowspan="3" align="left" valign="bottom" width="85"><a href="/news/"><img src="${root}newsworm.gif" width="85" height="134" border="0" alt="ABC Australia - Online News"></a></td>
     <td rowspan="3" width="20"><img width="20" height="10" src="${root}space.gif" alt="[space]"></td>
@@ -47,8 +51,9 @@ const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1
                 src="${story.imageURL}"
                 style="float:right;border:1px solid #000;margin:8px;width:200px;height:auto"
               />`
-            : ''}
-          <span style="font-size:${index < 3 ? 'x' : ''}x-large;line-height:0.95"
+            : ""}
+          <span
+            style="font-size:${index < 3 ? "x" : ""}x-large;line-height:0.95"
             ><tt
               ><b><a href="${story.url}">${story.headline}</a></b></tt
             ></span
@@ -79,66 +84,81 @@ const view = (stories, root, dateAEST) => html`<table width="580" cellpadding="1
   </tr>
 </table>`;
 
-const apikey = '***REMOVED***';
+Promise.all([fetchOne({ id: 45910, type: "collection" }), whenDOMReady]).then(
+  ([collectionDocument]) => {
+    const headEl = document.querySelector("head");
+    const bodyEl = document.querySelector("body");
 
-Promise.all([fetchOne({ apikey, id: 45910, type: 'collection' }), whenDOMReady]).then(([collectionDocument]) => {
-  const headEl = document.querySelector('head');
-  const bodyEl = document.querySelector('body');
+    Promise.all(
+      collectionDocument._embedded.content
+        .filter(({ docType }) => docType === "Article")
+        .map(({ id }) => fetchOne({ id, isTeasable: true }))
+    ).then((articleDocuments) => {
+      const stories = articleDocuments.map((articleDocument, index) => ({
+        url: articleDocument.canonicalURL,
+        headline: articleDocument.title,
+        pubDate: +new Date(articleDocument.dates.displayPublished),
+        teaser: articleDocument.synopsis,
+        imageURL:
+          index === 0 && articleDocument._embedded.mediaThumbnail
+            ? articleDocument._embedded.mediaThumbnail.images["4x3"]
+            : null,
+      }));
 
-  Promise.all(
-    collectionDocument._embedded.content
-      .filter(({ docType }) => docType === 'Article')
-      .map(({ id }) => fetchOne({ id, isTeasable: true }))
-  ).then((articleDocuments) => {
-    const stories = articleDocuments.map((articleDocument, index) => ({
-      url: articleDocument.canonicalURL,
-      headline: articleDocument.title,
-      pubDate: +new Date(articleDocument.dates.displayPublished),
-      teaser: articleDocument.synopsis,
-      imageURL:
-        index === 0 && articleDocument._embedded.mediaThumbnail
-          ? articleDocument._embedded.mediaThumbnail.images['4x3']
-          : null,
-    }));
+      let date = new Date(
+        stories.reduce((memo, story) => {
+          if (story.pubDate > memo) {
+            memo = story.pubDate;
+          }
 
-    let date = new Date(
-      stories.reduce((memo, story) => {
-        if (story.pubDate > memo) {
-          memo = story.pubDate;
-        }
+          return memo;
+        }, 0)
+      );
 
-        return memo;
-      }, 0)
-    );
+      if (0 === +date) {
+        date = new Date(Date.now());
+      }
 
-    if (0 === +date) {
-      date = new Date(Date.now());
-    }
+      const offsetMinutes = date.getTimezoneOffset() + 600;
 
-    const offsetMinutes = date.getTimezoneOffset() + 600;
+      date.setMinutes(date.getMinutes() + offsetMinutes);
 
-    date.setMinutes(date.getMinutes() + offsetMinutes);
+      const hours = date.getHours() % 12;
+      const minutes = date.getMinutes();
 
-    const hours = date.getHours() % 12;
-    const minutes = date.getMinutes();
+      const dateAEST = `${
+        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()]
+      }, ${
+        [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ][date.getMonth()]
+      } ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${
+        minutes < 10 ? "0" : ""
+      }${minutes} ${date.getHours() >= 12 ? "PM" : "AM"}`;
 
-    const dateAEST = `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}, ${
-      ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]
-    } ${date.getDate()}, ${date.getFullYear()} at ${hours ? hours : 12}:${minutes < 10 ? '0' : ''}${minutes} ${
-      date.getHours() >= 12 ? 'PM' : 'AM'
-    }`;
+      bodyEl.appendChild(view(stories, __webpack_public_path__, dateAEST));
+    });
 
-    bodyEl.appendChild(view(stories, __webpack_public_path__, dateAEST));
-  });
+    // Document reset (will have competed before the last promise resolves)
 
-  // Document reset (will have competed before the last promise resolves)
+    Array.from(headEl.children)
+      .filter((el) => el.getAttribute("rel") === "stylesheet")
+      .forEach((el) => headEl.removeChild(el));
 
-  Array.from(headEl.children)
-    .filter((el) => el.getAttribute('rel') === 'stylesheet')
-    .forEach((el) => headEl.removeChild(el));
-
-  bodyEl.innerHTML = '';
-  bodyEl.setAttribute('link', '#0000ff');
-  bodyEl.setAttribute('bgcolor', '#ffffff');
-  bodyEl.setAttribute('background', `${__webpack_public_path__}margin.gif`);
-});
+    bodyEl.innerHTML = "";
+    bodyEl.setAttribute("link", "#0000ff");
+    bodyEl.setAttribute("bgcolor", "#ffffff");
+    bodyEl.setAttribute("background", `${__webpack_public_path__}margin.gif`);
+  }
+);
